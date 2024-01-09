@@ -32,5 +32,5 @@ getToken()
         return getArtist(response.data.access_token, '7n2Ycct7Beij7Dj7meI4X0?si=ivNxUWvsQliFLNmiuU2I-g');
     })
     .then(artist => {
-        console.log(artist.data.name);
+        console.log(artist.data);
     })
