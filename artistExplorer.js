@@ -18,22 +18,40 @@ async function getArtistBio(token, id) {
     return `${name} is a ${genres[0]} artist with ${followers.total} followers and ${popularity} popularity`;
 }
 
+async function getArtistTopTracks(token, id) {
+    const config = {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { market: 'US' }
+    }
+    return await axios.get(`https://api.spotify.com/v1/artists/${id}/top-tracks`, config);
+}
+
+async function getTracksAudioFeatures(token, ids) {
+    const config = {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { ids: ids }
+    }
+    return await axios.get('https://api.spotify.com/v1/audio-features', config);
+}
+
 // tried paging with the provided 'next' url, and that didn't work (one page works, then the next page is empty or doesn't have as many as it should)
 // then tried paging manually (thats the version it is now), and got same results. setting this aside for now
 async function getArtistAlbums(token, id) {
     const limit = 20;
     const offset = 0;
     const include_groups = 'album,single';
+    const market = 'US';
+
     const albums = [];
 
     let config = {
         headers: { 'Authorization': `Bearer ${token}` },
-        params: { include_groups: include_groups, limit: limit, offset: offset }
+        params: { include_groups: include_groups, limit: limit, offset: offset, market: market }
     }
     let response = await axios.get(`https://api.spotify.com/v1/artists/${id}/albums`, config);
     const total = response.data.total;
     console.log(total);
-    console.log(response);
+    // console.log(response);
 
     for (let album of response.data.items) { albums.push(album) }
     console.log(`${offset}:${limit}/${response.data.total}, pushed ${response.data.items.length} albums`);
@@ -42,12 +60,12 @@ async function getArtistAlbums(token, id) {
         let newOffset = limit * i;
         config = {
             headers: { 'Authorization': `Bearer ${token}` },
-            params: { include_groups: include_groups, limit: limit, offset: newOffset }
+            params: { include_groups: include_groups, limit: limit, offset: newOffset, market: market }
         }
         response = await axios.get(`https://api.spotify.com/v1/artists/${id}/albums`, config);
         for (let album of response.data.items) { albums.push(album) }
         console.log(`${newOffset}:${limit}/${response.data.total}, pushed ${response.data.items.length} albums`);
-        console.log(response);
+        // console.log(response);
         // try a parallel version where you add a .then() to the response telling it to push onto albums when it's done. no await...how to wait for the final one though?
         // i guess you can iterate up to but don't include the final page in your for loop, don't use awaits, then do the final page with an await
         // that should stop the getArtistAlbums promise from settling until the last page is done
@@ -76,11 +94,23 @@ async function main() {
     // const albums = await getArtistAlbums(token, artistID);
     // console.log(albums.length, albums.map(album => album.name));
 
-
-
-
-
-
+    response = await getArtistTopTracks(token, artistID);
+    const tracks = response.data.tracks;
+    console.log('Their top tracks are:')
+    for (let i = 0; i < tracks.length; i++) {
+        console.log(`${i + 1}: ${tracks[i].name}`);
+    }
+    const trackIDs = tracks.map(track => track.id).join(',');
+    response = await getTracksAudioFeatures(token, trackIDs);
+    const audioFeatures = response.data.audio_features;
+    const features = ['danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo', 'duration_ms', 'time_signature'];
+    const avgAudioFeatures = {};
+    console.log('');
+    console.log('Top tracks average stats:')
+    for (let feature of features) {
+        avgAudioFeatures[feature] = audioFeatures.map(track => track[feature]).reduce((acc, curr) => acc + curr) / audioFeatures.length;
+        console.log(`${feature}: ${avgAudioFeatures[feature]}`);
+    }
 }
 
 main();
